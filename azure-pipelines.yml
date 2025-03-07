@@ -1,0 +1,47 @@
+# Maven
+# Build your Java project and run tests with Apache Maven.
+# Add steps that analyze code, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/java
+
+trigger:
+  - main
+  
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  imageName: 'pipelines-quarkus-docker'
+
+steps:
+- task: JavaToolInstaller@0
+  inputs:
+    versionSpec: '17'
+    jdkArchitectureOption: 'x64'
+    jdkSourceOption: 'PreInstalled'
+
+- script: echo "Setting JAVA_HOME to JDK 17 location."
+  displayName: 'Set JAVA_HOME to JDK 17'
+
+- script: |
+    java -version
+    echo "JVM: $(java -version)"
+  displayName: 'Check Java Version'
+
+- task: Maven@4
+  inputs:
+    azureSubscription: 'Assinatura do Azure 1(336a6d57-ede6-4579-b073-5fbe08fff30b)'
+    mavenPomFile: 'pom.xml'
+    publishJUnitResults: true
+    testResultsFiles: '**/surefire-reports/TEST-*.xml'
+    javaHomeOption: 'JDKVersion'
+    mavenVersionOption: 'Default'
+    mavenAuthenticateFeed: false
+    effectivePomSkip: false
+    sonarQubeRunAnalysis: false
+      
+- task: Docker@2
+  displayName: Build an image
+  inputs:
+    repository: $(imageName)
+    command: 'buildAndPush'
+    Dockerfile: '**/Dockerfile'
