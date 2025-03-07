@@ -39,9 +39,14 @@ steps:
     effectivePomSkip: false
     sonarQubeRunAnalysis: false
       
-- task: Docker@2
-  displayName: Build an image
-  inputs:
-    repository: $(imageName)
-    command: 'buildAndPush'
-    Dockerfile: '**/Dockerfile'
+- script: |
+    ./mvnw package -Dnative -Dquarkus.native.container-build=true
+  displayName: Build a native Linux executable
+
+- script: |
+    docker build -f src/main/docker/Dockerfile.native -t quarkus-api .
+  displayName: Build the container image
+
+- script: |
+    docker run -i --rm -p 8080:8080 quarkus-quickstart/getting-started .
+  displayName: Run the container
