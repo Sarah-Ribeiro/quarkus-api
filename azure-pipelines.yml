@@ -10,7 +10,9 @@ pool:
   vmImage: ubuntu-latest
 
 variables:
-  imageName: 'pipelines-quarkus-docker'
+  imageName: 'quarkus-api'
+  DOCKER_USERNAME: sarahribeiro123
+  DOCKER_PASSWORD: $(DOCKER_ACCESS_TOKEN)
 
 steps:
 - task: JavaToolInstaller@0
@@ -18,6 +20,7 @@ steps:
     versionSpec: '17'
     jdkArchitectureOption: 'x64'
     jdkSourceOption: 'PreInstalled'
+  displayName: Install JDK 17
 
 - script: echo "Setting JAVA_HOME to JDK 17 location."
   displayName: 'Set JAVA_HOME to JDK 17'
@@ -27,9 +30,13 @@ steps:
     echo "JVM: $(java -version)"
   displayName: 'Check Java Version'
 
+- script: |
+    chmod +x ./mvnw
+    ./mvnw clean
+  displayName: Clean project
+
 - task: Maven@4
   inputs:
-    azureSubscription: 'Assinatura do Azure 1(336a6d57-ede6-4579-b073-5fbe08fff30b)'
     mavenPomFile: 'pom.xml'
     publishJUnitResults: true
     testResultsFiles: '**/surefire-reports/TEST-*.xml'
@@ -38,15 +45,28 @@ steps:
     mavenAuthenticateFeed: false
     effectivePomSkip: false
     sonarQubeRunAnalysis: false
-      
+  displayName: Build of the application
+    
 - script: |
+    docker --version
+    sudo service docker start
+    docker --version
+  displayName: Show Docker version
+
+- script: |
+    chmod +x ./mvnw
     ./mvnw package -Dnative -Dquarkus.native.container-build=true
   displayName: Build a native Linux executable
 
 - script: |
-    docker build -f src/main/docker/Dockerfile.native -t quarkus-api .
-  displayName: Build the container image
+    docker login -u $(DOCKER_USERNAME) -p $(DOCKER_PASSWORD)
+  displayName: Docker login
 
 - script: |
-    docker run -i --rm -p 8080:8080 quarkus-quickstart/getting-started .
-  displayName: Run the container
+    docker build -f src/main/docker/Dockerfile.native -t $(imageName) .
+  displayName: Build the container image
+  
+- script: |
+    docker tag $(imageName) $(DOCKER_USERNAME)/$(imageName):latest
+    docker push $(DOCKER_USERNAME)/$(imageName):latest
+  displayName: Push Docker image to Docker Hub
